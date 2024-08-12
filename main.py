@@ -233,20 +233,18 @@ if __name__ == "__main__":
 
     # Log in
     print("Attempting to log in...")
-    session, login_response = login()
+    session, response = login()
 
     if DEBUG_MODE:
         with open("login_response.html", "w", encoding="utf-8") as file:
-            file.write(login_response.text)
+            file.write(response.text)
 
     # Check if login was successful
-    if login_response.status_code == 200:
-        if not "charset=UTF-8" in login_response.text:
-            print("Failed to log in. Check your credentials.")
-            sys.exit()
-        else:
+    if response.status_code == 200:
+        if "charset=UTF-8" in response.text:
             print("Logged in successfully!")
-
-        main(session, login_response)
+            main(session, response)
+        else:
+            print("Failed to log in. Check your credentials.")
     else:
-        print("Failed to log in.")
+        print(f"Failed to log in. Status code: {response.status_code}")
