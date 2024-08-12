@@ -38,10 +38,6 @@ def login():
     return session, response
 
 
-def get_registration_status(data):
-    return data["data"]["registerTimes"]["status"] == "success"
-
-
 def get_active_shift_id(session, ctxpre):
     # Endpoint for fetching shift data
     url = f"https://in.samesystem.com/{ctxpre}/graphql/web?query:TimeRegistrations"
@@ -109,8 +105,7 @@ def clock_in(session, ctxpre, shop_id, current_time_decimal):
 
     if response.status_code == 200:
         # Check if clock in registration was successful
-        success = get_registration_status(data)
-        if success == True:           
+        if data["data"]["registerTimes"]["status"] == "success":
             print("Clocked in successfully!")
         else:
             print(f"An error occurred while clocking in.")
