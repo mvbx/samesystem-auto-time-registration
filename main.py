@@ -149,8 +149,7 @@ def clock_out(session, ctxpre, shop_id, current_time_decimal, shift_id):
     
     if response.status_code == 200:
         # Check if clock out registration was successful
-        success = get_registration_status(data)
-        if success == True:
+        if data["data"]["registerTimes"]["status"] == "success":
             print("Clocked out successfully!")
         else:
             print(f"An error occurred while clocking out.")
