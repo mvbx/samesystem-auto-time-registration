@@ -227,7 +227,7 @@ if __name__ == "__main__":
     start_time = (current_time + timedelta(minutes=random_minutes)).strftime("%H:%M:%S")
 
     print(f"Current time: {current_time.strftime('%H:%M:%S')}")
-    print(f"Waiting for {random_minutes} {"minute" if random_minutes == 1 else "minutes"} until {start_time} before proceeding...")
+    print(f"Waiting for {random_minutes} {'minute' if random_minutes == 1 else 'minutes'} until {start_time} before proceeding...")
 
     time.sleep(random_minutes * 60)
 
@@ -241,7 +241,11 @@ if __name__ == "__main__":
 
     # Check if login was successful
     if login_response.status_code == 200:
-        print("Logged in successfully!")
+        if not "charset=UTF-8" in login_response.text:
+            print("Failed to log in. Check your credentials.")
+            sys.exit()
+        else:
+            print("Logged in successfully!")
 
         main(session, login_response)
     else:
