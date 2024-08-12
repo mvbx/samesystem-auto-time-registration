@@ -39,12 +39,7 @@ def login():
 
 
 def get_registration_status(data):
-    status_value = data["data"]["registerTimes"]["status"]
-    if status_value == "success":
-        success = True
-    else:
-        success = False
-    return success
+    return data["data"]["registerTimes"]["status"] == "success"
 
 
 def get_active_shift_id(session, ctxpre):
@@ -238,7 +233,7 @@ if __name__ == "__main__":
     start_time = (current_time + timedelta(minutes=random_minutes)).strftime("%H:%M:%S")
 
     print(f"Current time: {current_time.strftime('%H:%M:%S')}")
-    print(f"Waiting for {random_minutes} {'minute' if random_minutes == 1 else 'minutes'} until {start_time} before proceeding...")
+    print(f"Waiting for {random_minutes} {"minute" if random_minutes == 1 else "minutes"} until {start_time} before proceeding...")
 
     time.sleep(random_minutes * 60)
 
