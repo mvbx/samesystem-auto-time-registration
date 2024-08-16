@@ -38,7 +38,7 @@ def login():
     return session, response
 
 
-def get_active_shift_id(session, ctxpre):
+def get_shift_id(session, ctxpre):
     # Endpoint for fetching shift data
     url = f"https://in.samesystem.com/{ctxpre}/graphql/web?query:TimeRegistrations"
 
@@ -56,25 +56,40 @@ def get_active_shift_id(session, ctxpre):
     data = response.json()
 
     if DEBUG_MODE:
-        with open("get_active_shift_id_response.json", "w") as file:
+        with open("get_shift_id_response.json", "w") as file:
             json.dump(data, file, indent=4)
 
-    # Extract the list of current statuses
+    # Extract the list of shifts
     shifts = data["data"]["timeRegistrations"]["currentStatus"]
 
-    # Find the shift that has not been clocked out yet
-    shift_id_to_clock_out = None
+    # Initialize variables
+    shift_id = None
+    is_planned = False
+    should_clock_out = False
+
+    # Extract the ID of the active shift
     for shift in shifts:
         # Check if the shift has a start time but no end time (i.e., not clocked out yet)
         if shift["registeredStartTime"] and not shift["registeredEndTime"]:
-            shift_id_to_clock_out = shift["shiftId"]
-            print(f"Found ID of active shift to clock out of: {shift_id_to_clock_out}")
+            shift_id = shift["shiftId"]
+            print(f"Found ID of active shift to clock out of: {shift_id}")
+            should_clock_out = True
             break
+    
+    # If no active shift was found, extract the ID of the planned shift if one exists
+    if not shift_id:
+        try:
+            shift_id = data["data"]["timeRegistrations"]["basicData"]["registrations"][0]["shiftId"]
+            print(f"Found ID of planned shift to clock in to: {shift_id}")
+            is_planned = True
+        except (KeyError, IndexError) as e:
+            # No planned shift was found
+            print("No planned shift found, will clock in manually as an unplanned shift.")
 
-    return shift_id_to_clock_out
+    return shift_id, is_planned, should_clock_out
 
 
-def clock_in(session, ctxpre, shop_id, current_time_decimal):
+def clock_in(session, ctxpre, shift_id, shop_id, current_time_decimal, is_planned):
     # Endpoint to register time
     url = f"https://in.samesystem.com/{ctxpre}/graphql/web?mutation:RegisterTimes"
 
@@ -94,6 +109,10 @@ def clock_in(session, ctxpre, shop_id, current_time_decimal):
         "query": "mutation RegisterTimes($breaks: [BreakInputType], $breakReason: String, $punchIn: TimeRegistrationActionInput, $punchOut: TimeRegistrationActionInput, $shiftId: ID, $shopId: ID) {\n  registerTimes(\n    breaks: $breaks\n    punchIn: $punchIn\n    punchOut: $punchOut\n    shiftId: $shiftId\n    shopId: $shopId\n    breakReason: $breakReason\n  ) {\n    currentStatus: current_state {\n      breakReason: break_reason\n      breakReasonRequired: break_reason_required\n      breaks {\n        duration {\n          minutes\n          __typename\n        }\n        endedAt: ended_at {\n          plain\n          float\n          __typename\n        }\n        paid\n        startedAt: started_at {\n          plain\n          float\n          __typename\n        }\n        __typename\n      }\n      breaksReason: breaks_reason\n      endReasonRequired: end_reason_required\n      endTimeReason: end_time_reason\n      registeredEndTime: registered_end_time {\n        float\n        plain\n        __typename\n      }\n      registeredStartTime: registered_start_time {\n        float\n        plain\n        __typename\n      }\n      shiftId: shift_id\n      shop {\n        id\n        name\n        __typename\n      }\n      startReasonRequired: start_reason_required\n      startTimeReason: start_time_reason\n      swipedInReason: swiped_in_reason\n      swipedInRounded: swiped_in_rounded {\n        plain\n        __typename\n      }\n      swipedOutReason: swiped_out_reason\n      swipedOutRounded: swiped_out_rounded {\n        plain\n        __typename\n      }\n      __typename\n    }\n    messages\n    status\n    __typename\n  }\n}"
     }
 
+    # Add shift ID only if shift is planned
+    if is_planned:
+        payload["variables"]["shiftId"] = shift_id
+
     # Send the POST request to clock in
     print("Sending clock in request...")
     response = session.post(url, json=payload)
@@ -107,16 +126,19 @@ def clock_in(session, ctxpre, shop_id, current_time_decimal):
         # Check if clock in registration was successful
         if data["data"]["registerTimes"]["status"] == "success":
             print("Clocked in successfully!")
+            time.sleep(3)
         else:
-            print(f"An error occurred while clocking in.")
+            print("An error occurred while clocking in:")
+            print(data["data"]["registerTimes"]["messages"][0])
+            #print(", ".join(data["data"]["registerTimes"]["messages"]))
     else:
-        print("An error occurred while clocking in:")
+        print(f"A {response.status_code} error occurred while clocking in:")
         print(response)
     
     return
 
 
-def clock_out(session, ctxpre, shop_id, current_time_decimal, shift_id):
+def clock_out(session, ctxpre, shift_id, shop_id, current_time_decimal):
     # Endpoint to register time
     url = f"https://in.samesystem.com/{ctxpre}/graphql/web?mutation:RegisterTimes"
 
@@ -151,10 +173,13 @@ def clock_out(session, ctxpre, shop_id, current_time_decimal, shift_id):
         # Check if clock out registration was successful
         if data["data"]["registerTimes"]["status"] == "success":
             print("Clocked out successfully!")
+            time.sleep(3)
         else:
-            print(f"An error occurred while clocking out.")
+            print(f"An error occurred while clocking out:")
+            print(data["data"]["registerTimes"]["messages"][0])
+            #print(", ".join(data["data"]["registerTimes"]["messages"]))
     else:
-        print("An error occurred while clocking out:")
+        print(f"A {response.status_code} error occurred while clocking out:")
         print(response)
 
     return
@@ -204,14 +229,12 @@ def main(session, login_response):
     current_time_decimal = get_decimal_time(current_time_str)  # Convert the current time to decimals
 
     # Get the ID of the active shift if there is one
-    shift_id = get_active_shift_id(session, ctxpre)
+    shift_id, is_planned, should_clock_out = get_shift_id(session, ctxpre)
 
-    if shift_id:
-        print(f"Active shift found, clocking out...")
-        clock_out(session, ctxpre, shop_id, current_time_decimal, shift_id)
+    if should_clock_out:
+        clock_out(session, ctxpre, shift_id, shop_id, current_time_decimal)
     else:
-        print(f"No active shift found, clocking in...")
-        clock_in(session, ctxpre, shop_id, current_time_decimal)
+        clock_in(session, ctxpre, shift_id, shop_id, current_time_decimal, is_planned)
 
 
 if __name__ == "__main__":
