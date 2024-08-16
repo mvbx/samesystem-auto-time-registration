@@ -34,6 +34,17 @@ def login():
 
     # Send POST request to the login endpoint
     response = session.post(url, data=payload)
+
+    if DEBUG_MODE:
+        # Write the URL and payload to a file
+        with open("login_request.txt", "w") as file:
+            file.write(f"URL: {url}\n\n")
+            file.write("Payload:\n")
+            json.dump(payload, file, indent=4)
+        
+        # Write the response to a file
+        with open("login_response.html", "w", encoding="utf-8") as file:
+            file.write(response.text)
     
     return session, response
 
@@ -56,6 +67,13 @@ def get_shift_id(session, ctxpre):
     data = response.json()
 
     if DEBUG_MODE:
+        # Write the URL and payload to a file
+        with open("get_shift_id_request.txt", "w") as file:
+            file.write(f"URL: {url}\n\n")
+            file.write("Payload:\n")
+            json.dump(payload, file, indent=4)
+        
+        # Write the response to a file
         with open("get_shift_id_response.json", "w") as file:
             json.dump(data, file, indent=4)
 
@@ -119,6 +137,13 @@ def clock_in(session, ctxpre, shift_id, shop_id, current_time_decimal, is_planne
     data = response.json()
 
     if DEBUG_MODE:
+        # Write the URL and payload to a file
+        with open("clock_in_request.txt", "w") as file:
+            file.write(f"URL: {url}\n\n")
+            file.write("Payload:\n")
+            json.dump(payload, file, indent=4)
+        
+        # Write the response to a file
         with open("clock_in_response.json", "w") as file:
             json.dump(data, file, indent=4)
 
@@ -166,6 +191,13 @@ def clock_out(session, ctxpre, shift_id, shop_id, current_time_decimal):
     data = response.json()
 
     if DEBUG_MODE:
+        # Write the URL and payload to a file
+        with open("clock_out_request.txt", "w") as file:
+            file.write(f"URL: {url}\n\n")
+            file.write("Payload:\n")
+            json.dump(payload, file, indent=4)
+        
+        # Write the response to a file
         with open("clock_out_response.json", "w") as file:
             json.dump(data, file, indent=4)
     
@@ -217,13 +249,6 @@ def main(session, login_response):
         print("Error: 'departmentId' value not found.")
         sys.exit()
 
-    if DEBUG_MODE:
-        # Fetch dashboard page
-        dashboard_url = f"https://in.samesystem.com/{ctxpre}/"
-        dashboard_response = session.get(dashboard_url)  # Use "session" to interact with pages that require login
-        with open("dashboard_response.html", "w", encoding="utf-8") as file:
-            file.write(dashboard_response.text)
-
     # Get the current time
     current_time_str = datetime.now().strftime("%H:%M:%S")
     current_time_decimal = get_decimal_time(current_time_str)  # Convert the current time to decimals
@@ -257,10 +282,6 @@ if __name__ == "__main__":
     # Log in
     print("Attempting to log in...")
     session, response = login()
-
-    if DEBUG_MODE:
-        with open("login_response.html", "w", encoding="utf-8") as file:
-            file.write(response.text)
 
     # Check if login was successful
     if response.status_code == 200:
