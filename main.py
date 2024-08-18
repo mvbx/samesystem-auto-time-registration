@@ -148,14 +148,13 @@ def clock_in(session, ctxpre, shift_id, shop_id, current_time_decimal, is_planne
             json.dump(data, file, indent=4)
 
     if response.status_code == 200:
-        # Check if clock in registration was successful
+        # Check if time registration was successful
         if data["data"]["registerTimes"]["status"] == "success":
             print("Clocked in successfully!")
             time.sleep(3)
         else:
             print("An error occurred while clocking in:")
             print(data["data"]["registerTimes"]["messages"][0])
-            #print(", ".join(data["data"]["registerTimes"]["messages"]))
     else:
         print(f"A {response.status_code} error occurred while clocking in:")
         print(response)
@@ -202,14 +201,13 @@ def clock_out(session, ctxpre, shift_id, shop_id, current_time_decimal):
             json.dump(data, file, indent=4)
     
     if response.status_code == 200:
-        # Check if clock out registration was successful
+        # Check if time registration was successful
         if data["data"]["registerTimes"]["status"] == "success":
             print("Clocked out successfully!")
             time.sleep(3)
         else:
             print(f"An error occurred while clocking out:")
             print(data["data"]["registerTimes"]["messages"][0])
-            #print(", ".join(data["data"]["registerTimes"]["messages"]))
     else:
         print(f"A {response.status_code} error occurred while clocking out:")
         print(response)
@@ -251,7 +249,7 @@ def main(session, login_response):
 
     # Get the current time
     current_time_str = datetime.now().strftime("%H:%M:%S")
-    current_time_decimal = get_decimal_time(current_time_str)  # Convert the current time to decimals
+    current_time_decimal = get_decimal_time(current_time_str)
 
     # Get the ID of the active shift if there is one
     shift_id, is_planned, should_clock_out = get_shift_id(session, ctxpre)
