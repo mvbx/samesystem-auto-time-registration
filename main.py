@@ -12,8 +12,13 @@ import requests
 EMAIL    = "your@email.com"
 PASSWORD = "YourPassword123"
 
-# The script will sleep for a random duration between 0 and TIME_WINDOW_MINUTES before proceeding to clock in or out
-TIME_WINDOW_MINUTES = 20
+# Define the time range the clock-in should occur within
+CLOCK_IN_START_TIME = "07:50"  # Earliest possible time to clock in
+CLOCK_IN_END_TIME   = "08:10"  # Latest possible time to clock in
+
+# Define the time range the clock-out should occur within
+CLOCK_OUT_START_TIME = "15:50"  # Earliest possible time to clock out
+CLOCK_OUT_END_TIME   = "16:10"  # Latest possible time to clock out
 
 # Writes request responses to files for debugging purposes
 DEBUG_MODE = False
@@ -107,7 +112,10 @@ def get_shift_id(session, ctxpre):
     return shift_id, is_planned, should_clock_out
 
 
-def clock_in(session, ctxpre, shift_id, shop_id, current_time_decimal, is_planned):
+def clock_in(session, ctxpre, shift_id, shop_id, is_planned):
+    time_str = get_random_time_between(CLOCK_IN_START_TIME, CLOCK_IN_END_TIME)
+    time_decimal = get_decimal_time(time_str)
+
     # Endpoint to register time
     url = f"https://in.samesystem.com/{ctxpre}/graphql/web?mutation:RegisterTimes"
 
@@ -119,7 +127,7 @@ def clock_in(session, ctxpre, shift_id, shop_id, current_time_decimal, is_planne
                 "reason": "",
                 "time": {
                     "format": "float",
-                    "value": current_time_decimal
+                    "value": time_decimal
                 }
             },
             "shopId": shop_id
@@ -162,7 +170,10 @@ def clock_in(session, ctxpre, shift_id, shop_id, current_time_decimal, is_planne
     return
 
 
-def clock_out(session, ctxpre, shift_id, shop_id, current_time_decimal):
+def clock_out(session, ctxpre, shift_id, shop_id):
+    time_str = get_random_time_between(CLOCK_OUT_START_TIME, CLOCK_OUT_END_TIME)
+    time_decimal = get_decimal_time(time_str)
+
     # Endpoint to register time
     url = f"https://in.samesystem.com/{ctxpre}/graphql/web?mutation:RegisterTimes"
 
@@ -175,7 +186,7 @@ def clock_out(session, ctxpre, shift_id, shop_id, current_time_decimal):
                 "reason": "",
                 "time": {
                     "format": "float",
-                    "value": current_time_decimal
+                    "value": time_decimal
                 }
             },
             "shiftId": shift_id,
@@ -228,6 +239,24 @@ def get_decimal_time(time_str):
     return str(decimal_hours)
 
 
+def get_random_time_between(start_time_str, end_time_str):
+    # Convert input time strings to datetime objects
+    start_time = datetime.strptime(start_time_str, "%H:%M")
+    end_time = datetime.strptime(end_time_str, "%H:%M")
+    
+    # Calculate the difference in seconds between the start and end time
+    time_diff = int((end_time - start_time).total_seconds())
+    
+    # Generate a random number of seconds to add to the start time
+    random_seconds = random.randint(0, time_diff)
+    
+    # Calculate the random time by adding the random seconds to the start time
+    random_time = start_time + timedelta(seconds=random_seconds)
+    
+    # Format the random time as HH:MM:SS
+    return random_time.strftime("%H:%M:%S")
+
+
 def main(session, login_response):
     # Regular expressions to find the ctxpre and departmentId values
     ctxpre_match = re.search(r"ctxpre\s*=\s*'(.*?)';", login_response.text)
@@ -247,17 +276,13 @@ def main(session, login_response):
         print("Error: 'departmentId' value not found.")
         sys.exit()
 
-    # Get the current time
-    current_time_str = datetime.now().strftime("%H:%M:%S")
-    current_time_decimal = get_decimal_time(current_time_str)
-
-    # Get the ID of the active shift if there is one
+    # Get the ID of the active shift (if there is one)
     shift_id, is_planned, should_clock_out = get_shift_id(session, ctxpre)
 
     if should_clock_out:
-        clock_out(session, ctxpre, shift_id, shop_id, current_time_decimal)
+        clock_out(session, ctxpre, shift_id, shop_id)
     else:
-        clock_in(session, ctxpre, shift_id, shop_id, current_time_decimal, is_planned)
+        clock_in(session, ctxpre, shift_id, shop_id, is_planned)
 
 
 if __name__ == "__main__":
@@ -266,16 +291,6 @@ if __name__ == "__main__":
 
     # Change the working directory to the script's directory
     os.chdir(script_directory)
-
-    # Sleep for a randomized amount of time
-    random_minutes = random.randint(0, TIME_WINDOW_MINUTES)
-    current_time = datetime.now()
-    start_time = (current_time + timedelta(minutes=random_minutes)).strftime("%H:%M:%S")
-
-    print(f"Current time: {current_time.strftime('%H:%M:%S')}")
-    print(f"Waiting for {random_minutes} {'minute' if random_minutes == 1 else 'minutes'} until {start_time} before proceeding...")
-
-    time.sleep(random_minutes * 60)
 
     # Log in
     print("Attempting to log in...")
